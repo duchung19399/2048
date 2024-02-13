@@ -11,6 +11,8 @@ public class TileBoard : MonoBehaviour {
     private TileGrid _grid;
     private List<Tile> _tiles;
 
+    private bool isMoving = false;
+
     private void Awake() {
         _grid = GetComponentInChildren<TileGrid>();
         _tiles = new List<Tile>(16);
@@ -24,6 +26,7 @@ public class TileBoard : MonoBehaviour {
     }
 
     private void GameInput_OnMoveAction(object sender, GameInput.OnMoveEventArgs e) {
+        if(isMoving) return;
         PlayerAction action = e.action;
         switch (action) {
             case PlayerAction.Up:
@@ -41,19 +44,48 @@ public class TileBoard : MonoBehaviour {
         }
     }
 
-    private void MoveTiles(Vector2Int direction, int startX, int startY, int xStep, int yStep) {
-        for(int y = startY; y < _grid.height && y >= 0; y += yStep) {
-            for(int x = startX; x < _grid.width && x >= 0; x += xStep) {
+    private void MoveTiles(Vector2Int direction, int startX, int xStep, int startY, int yStep) {
+        bool isChanged = false;
+        for (int y = startY; y < _grid.height && y >= 0; y += yStep) {
+            for (int x = startX; x < _grid.width && x >= 0; x += xStep) {
                 TileCell cell = _grid.GetCell(x, y);
-                if(cell != null) {
-                    MoveSingleTile(cell, direction);
+                if (cell.Occupied) {
+                    isChanged |= MoveSingleTile(cell, direction);
                 }
             }
         }
+
+        if(isChanged) {
+            isMoving = true;
+            StartCoroutine(WaitForMove());
+        }
     }
 
-    private void MoveSingleTile(TileCell cell, Vector2Int direction) {
+    private IEnumerator WaitForMove() {
+        yield return new WaitForSeconds(0.2f);
+        isMoving = false;
+    }
 
+    private bool MoveSingleTile(TileCell cell, Vector2Int direction) {
+        TileCell newCell = null;
+        TileCell adjacentCell = _grid.GetAdjacentCell(cell, direction);
+
+        while (adjacentCell != null) {
+            if (adjacentCell.Occupied) {
+                //Merge cell
+
+                break;
+            }
+
+            newCell = adjacentCell;
+            adjacentCell = _grid.GetAdjacentCell(newCell, direction);
+        }
+
+        if (newCell != null) {
+            cell._tile.MoveTo(newCell);
+            return true;
+        }
+        return false;
     }
 
     private void OnDestroy() {
